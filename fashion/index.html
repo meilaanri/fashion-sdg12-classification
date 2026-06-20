@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fashion Image Classification SDG 12</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Fashion Image Classification</h1>
+    <p>
+      Lightweight image classification model to support SDG 12:
+      Responsible Consumption and Production.
+    </p>
+
+    <input type="file" id="imageUpload" accept="image/*" />
+
+    <div class="preview-box">
+      <img id="previewImage" />
+    </div>
+
+    <button onclick="predictImage()">Predict</button>
+
+    <h2 id="result">Prediction result will appear here.</h2>
+    <p id="confidence"></p>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
