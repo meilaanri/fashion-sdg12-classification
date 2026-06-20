@@ -13,6 +13,34 @@ const classNames = [
   "Ankle boot"
 ];
 
+function patchKeras3ModelConfig(obj) {
+  if (Array.isArray(obj)) {
+    obj.forEach(patchKeras3ModelConfig);
+    return;
+  }
+
+  if (obj && typeof obj === "object") {
+    if (obj.batch_shape && !obj.batch_input_shape) {
+      obj.batch_input_shape = obj.batch_shape;
+      delete obj.batch_shape;
+    }
+
+    if (
+      obj.dtype &&
+      typeof obj.dtype === "object" &&
+      obj.dtype.class_name === "DTypePolicy" &&
+      obj.dtype.config &&
+      obj.dtype.config.name
+    ) {
+      obj.dtype = obj.dtype.config.name;
+    }
+
+    Object.keys(obj).forEach((key) => {
+      patchKeras3ModelConfig(obj[key]);
+    });
+  }
+}
+
 async function loadModel() {
   const resultEl = document.getElementById("result");
   const confidenceEl = document.getElementById("confidence");
@@ -21,11 +49,62 @@ async function loadModel() {
   confidenceEl.innerText = "";
 
   try {
-    const modelPath = window.location.origin + "/tfjs_model/model.json";
+    const basePath = window.location.origin + "/tfjs_model/";
+    const modelJsonUrl = basePath + "model.json";
 
-    console.log("Loading model from:", modelPath);
+    console.log("Loading model json from:", modelJsonUrl);
 
-    model = await tf.loadLayersModel(modelPath);
+    const response = await fetch(modelJsonUrl);
+
+    if (!response.ok) {
+      throw new Error("model.json not found. Status: " + response.status);
+    }
+
+    const modelJson = await response.json();
+
+    patchKeras3ModelConfig(modelJson.modelTopology);
+
+    const weightSpecs = [];
+    const weightBuffers = [];
+
+    for (const group of modelJson.weightsManifest) {
+      weightSpecs.push(...group.weights);
+
+      for (const path of group.paths) {
+        const weightUrl = basePath + path;
+        console.log("Loading weight file from:", weightUrl);
+
+        const weightResponse = await fetch(weightUrl);
+
+        if (!weightResponse.ok) {
+          throw new Error(path + " not found. Status: " + weightResponse.status);
+        }
+
+        const buffer = await weightResponse.arrayBuffer();
+        weightBuffers.push(new Uint8Array(buffer));
+      }
+    }
+
+    let totalLength = 0;
+    weightBuffers.forEach((buffer) => {
+      totalLength += buffer.length;
+    });
+
+    const combinedWeights = new Uint8Array(totalLength);
+    let offset = 0;
+
+    weightBuffers.forEach((buffer) => {
+      combinedWeights.set(buffer, offset);
+      offset += buffer.length;
+    });
+
+    const modelArtifacts = {
+      modelTopology: modelJson.modelTopology,
+      weightSpecs: weightSpecs,
+      weightData: combinedWeights.buffer
+    };
+
+    model = await tf.loadLayersModel(tf.io.fromMemory(modelArtifacts));
 
     console.log("Model loaded successfully");
 
@@ -63,7 +142,7 @@ async function predictImage() {
 
   if (!model) {
     resultEl.innerText = "Model is still loading or failed to load.";
-    confidenceEl.innerText = "Please wait or check the model error message.";
+    confidenceEl.innerText = "Please wait until the model is loaded.";
     return;
   }
 
