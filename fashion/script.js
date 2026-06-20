@@ -14,8 +14,18 @@ const classNames = [
 ];
 
 async function loadModel() {
-  model = await tf.loadLayersModel("./tfjs_model/model.json");
-  console.log("Model loaded successfully");
+  const resultEl = document.getElementById("result");
+
+  resultEl.innerText = "Loading model, please wait...";
+
+  try {
+    model = await tf.loadLayersModel("./tfjs_model/model.json");
+    console.log("Model loaded successfully");
+    resultEl.innerText = "Model loaded. Please upload an image and click Predict.";
+  } catch (error) {
+    console.error("Model load error:", error);
+    resultEl.innerText = "Model failed to load. Please check tfjs_model/model.json path.";
+  }
 }
 
 loadModel();
@@ -27,42 +37,51 @@ document.getElementById("imageUpload").addEventListener("change", function (even
   if (file) {
     preview.src = URL.createObjectURL(file);
     preview.style.display = "block";
+    document.getElementById("result").innerText = "Image uploaded. Click Predict.";
+    document.getElementById("confidence").innerText = "";
   }
 });
 
 async function predictImage() {
   const image = document.getElementById("previewImage");
+  const resultEl = document.getElementById("result");
+  const confidenceEl = document.getElementById("confidence");
 
   if (!model) {
-    alert("Model is still loading. Please wait.");
+    resultEl.innerText = "Model is still loading or failed to load.";
     return;
   }
 
   if (!image.src) {
-    alert("Please upload an image first.");
+    resultEl.innerText = "Please upload an image first.";
     return;
   }
 
-  const tensor = tf.browser.fromPixels(image)
-    .resizeNearestNeighbor([28, 28])
-    .mean(2)
-    .expandDims(2)
-    .expandDims(0)
-    .toFloat()
-    .div(255.0);
+  resultEl.innerText = "Predicting...";
+  confidenceEl.innerText = "";
 
-  const prediction = model.predict(tensor);
-  const predictionData = await prediction.data();
+  try {
+    const tensor = tf.browser.fromPixels(image)
+      .resizeNearestNeighbor([28, 28])
+      .mean(2)
+      .expandDims(2)
+      .expandDims(0)
+      .toFloat()
+      .div(255.0);
 
-  const maxProbability = Math.max(...predictionData);
-  const predictedIndex = predictionData.indexOf(maxProbability);
+    const prediction = model.predict(tensor);
+    const predictionData = await prediction.data();
 
-  document.getElementById("result").innerText =
-    "Prediction: " + classNames[predictedIndex];
+    const maxProbability = Math.max(...predictionData);
+    const predictedIndex = predictionData.indexOf(maxProbability);
 
-  document.getElementById("confidence").innerText =
-    "Confidence: " + (maxProbability * 100).toFixed(2) + "%";
+    resultEl.innerText = "Prediction: " + classNames[predictedIndex];
+    confidenceEl.innerText = "Confidence: " + (maxProbability * 100).toFixed(2) + "%";
 
-  tensor.dispose();
-  prediction.dispose();
+    tensor.dispose();
+    prediction.dispose();
+  } catch (error) {
+    console.error("Prediction error:", error);
+    resultEl.innerText = "Prediction failed. Please check image input or model format.";
+  }
 }
