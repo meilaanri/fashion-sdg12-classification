@@ -81,7 +81,7 @@ async function predictImage() {
     tensor.dispose();
     prediction.dispose();
   } catch (error) {
-    console.error("Prediction error:", error);
-    resultEl.innerText = "Prediction failed. Please check image input or model format.";
-  }
+  console.error("Model load error:", error);
+  resultEl.innerText = "Model failed to load: " + error.message;
+}
 }
