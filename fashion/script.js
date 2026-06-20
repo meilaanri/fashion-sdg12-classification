@@ -15,16 +15,27 @@ const classNames = [
 
 async function loadModel() {
   const resultEl = document.getElementById("result");
+  const confidenceEl = document.getElementById("confidence");
 
   resultEl.innerText = "Loading model, please wait...";
+  confidenceEl.innerText = "";
 
   try {
-    model = await tf.loadLayersModel("./tfjs_model/model.json");
+    const modelPath = window.location.origin + "/tfjs_model/model.json";
+
+    console.log("Loading model from:", modelPath);
+
+    model = await tf.loadLayersModel(modelPath);
+
     console.log("Model loaded successfully");
+
     resultEl.innerText = "Model loaded. Please upload an image and click Predict.";
+    confidenceEl.innerText = "";
   } catch (error) {
     console.error("Model load error:", error);
-    resultEl.innerText = "Model failed to load. Please check tfjs_model/model.json path.";
+
+    resultEl.innerText = "Model failed to load.";
+    confidenceEl.innerText = error.message;
   }
 }
 
@@ -33,12 +44,15 @@ loadModel();
 document.getElementById("imageUpload").addEventListener("change", function (event) {
   const file = event.target.files[0];
   const preview = document.getElementById("previewImage");
+  const resultEl = document.getElementById("result");
+  const confidenceEl = document.getElementById("confidence");
 
   if (file) {
     preview.src = URL.createObjectURL(file);
     preview.style.display = "block";
-    document.getElementById("result").innerText = "Image uploaded. Click Predict.";
-    document.getElementById("confidence").innerText = "";
+
+    resultEl.innerText = "Image uploaded. Click Predict.";
+    confidenceEl.innerText = "";
   }
 });
 
@@ -49,11 +63,13 @@ async function predictImage() {
 
   if (!model) {
     resultEl.innerText = "Model is still loading or failed to load.";
+    confidenceEl.innerText = "Please wait or check the model error message.";
     return;
   }
 
   if (!image.src) {
     resultEl.innerText = "Please upload an image first.";
+    confidenceEl.innerText = "";
     return;
   }
 
@@ -81,7 +97,9 @@ async function predictImage() {
     tensor.dispose();
     prediction.dispose();
   } catch (error) {
-  console.error("Model load error:", error);
-  resultEl.innerText = "Model failed to load: " + error.message;
-}
+    console.error("Prediction error:", error);
+
+    resultEl.innerText = "Prediction failed.";
+    confidenceEl.innerText = error.message;
+  }
 }
